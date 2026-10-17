@@ -145,7 +145,7 @@ dependencies {
 }
 
 protobuf {
-  protoc { artifact = "com.google.protobuf:protoc:4.26.1" }
+  protoc { artifact = "com.google.protobuf:protoc:4.36.2" }
   generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }
 }
 
