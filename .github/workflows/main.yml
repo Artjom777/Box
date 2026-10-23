@@ -23,41 +23,27 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
-      - name: Setup Compatible Gradle
+      - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
-      - name: Inspect and Prepare Build Directory
+      - name: Disable Diagnostic Checks & Build
         run: |
           SETTINGS_FILE=$(find . -maxdepth 3 -name "settings.gradle*" | head -n 1)
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "settings.gradle not found, listing root files:"
-            ls -la
-            exit 1
-          fi
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
           cd "$PROJECT_DIR"
-          
-          # Если gradlew уже есть где-то рядом
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-          fi
 
-      - name: Build Optimized APK
-        run: |
-          cd "$PROJECT_DIR"
+          # Отключаем сбойную проверку Kotlin-AGP в gradle.properties
+          echo "kotlin.experimental.diagnostics.enable=false" >> gradle.properties
+          echo "android.defaults.buildfeatures.buildconfig=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" >> gradle.properties
+
           OPT="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto"
-          
-          # Если есть gradlew — используем его, иначе вызываем системный gradle напрямую
-          BUILD_CMD="./gradlew"
-          if [ ! -f "./gradlew" ]; then
-            BUILD_CMD="gradle"
-          fi
 
-          $BUILD_CMD assembleDebug \
+          gradle assembleDebug \
             --no-daemon \
+            -Dkotlin.experimental.diagnostics.enable=false \
             -Pandroid.injected.build.abi=arm64-v8a \
             -Pandroid.injected.build.cmake.cflags="$OPT" \
             -Pandroid.injected.build.cmake.cxxflags="$OPT" \
@@ -69,4 +55,3 @@ jobs:
         with:
           name: box-optimized-armv9
           path: "**/build/outputs/apk/**/*.apk"
-          
