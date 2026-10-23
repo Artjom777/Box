@@ -1,4 +1,4 @@
-name: Build Box APK
+name: Build Box APK Optimized
 on:
   workflow_dispatch:
 
@@ -17,26 +17,49 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Build Debug APK with Native Wrapper
-        run: |
-          # Находим директорию с основным gradlew
-          WRAPPER_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -z "$WRAPPER_PATH" ]; then
-            echo "gradlew не найден!"
-            exit 1
-          fi
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+          link-to-sdk: true
 
+      - name: Configure Target Architecture & Hardware Flags
+        run: |
+          WRAPPER_PATH=$(find . -name "gradlew" | head -n 1)
           PROJECT_DIR=$(dirname "$WRAPPER_PATH")
           cd "$PROJECT_DIR"
           chmod +x ./gradlew
 
-          echo "Запуск из каталога: $PROJECT_DIR"
-          ./gradlew assembleDebug --stacktrace
+          # 1. Подавление ошибки несовместимости Kotlin с AGP 9
+          cat << 'EOF' >> gradle.properties
+          kotlin.suppress.gradle.plugin.binding.errors=true
+          kotlin.experimental.diagnostics.enable=false
+          android.overrideVersionCheck=true
+          EOF
+
+          # 2. Флаги микроархитектуры ARMv9.2-A (ядра Cortex-A725/A720, dotprod, i8mm, sve2)
+          OPT_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -DGGML_OPENCL=ON -DGGML_VULKAN=ON -DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"
+
+          # Пробрасываем флаги во все нативные CMake-конфигурации проекта
+          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $OPT_FLAGS\")\nset(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $OPT_FLAGS\")" {} + || true
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+
+      - name: Build Optimized APK
+        run: |
+          cd "$PROJECT_DIR"
+          ./gradlew assembleDebug \
+            --no-daemon \
+            -Dkotlin.suppress.gradle.plugin.binding.errors=true \
+            -Dkotlin.experimental.diagnostics.enable=false \
+            -Pandroid.injected.build.abi=arm64-v8a \
+            -Pandroid.injected.build.cmake.cflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
+            -Pandroid.injected.build.cmake.cxxflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
+            --stacktrace
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: box-debug-apk
+          name: box-armv9-optimized
           path: "**/build/outputs/apk/**/*.apk"
-          
