@@ -1,4 +1,4 @@
-name: Build Box APK Optimized
+name: Build Optimized Box for Dimensity 8400
 on:
   workflow_dispatch:
 
@@ -17,49 +17,46 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26d
-          link-to-sdk: true
-
-      - name: Configure Target Architecture & Hardware Flags
+      - name: Optimize for MediaTek Dimensity
         run: |
-          WRAPPER_PATH=$(find . -name "gradlew" | head -n 1)
-          PROJECT_DIR=$(dirname "$WRAPPER_PATH")
-          cd "$PROJECT_DIR"
-          chmod +x ./gradlew
+          cd Android/src
 
-          # 1. Подавление ошибки несовместимости Kotlin с AGP 9
+          # 1. Исправляем версию AGP для совместимости со сборщиком
+          if [ -f "gradle/libs.versions.toml" ]; then
+            sed -i 's/agp = "9.4.1"/agp = "8.8.2"/g' gradle/libs.versions.toml
+          fi
+
+          # 2. Вырезаем библиотеки чужих чипсетов (Qualcomm QNN и Tensor), оставляем только MediaTek
+          JNI_DIR="app/src/main/jniLibs/arm64-v8a"
+          if [ -d "$JNI_DIR" ]; then
+            rm -f "$JNI_DIR"/*Qualcomm*
+            rm -f "$JNI_DIR"/*Qnn*
+            rm -f "$JNI_DIR"/*GoogleTensor*
+            echo "Оставлены нативные библиотеки ускорения:"
+            ls -la "$JNI_DIR"
+          fi
+
+          # 3. Фиксация настроек Gradle под целевую систему
           cat << 'EOF' >> gradle.properties
-          kotlin.suppress.gradle.plugin.binding.errors=true
+          android.injected.build.abi=arm64-v8a
           kotlin.experimental.diagnostics.enable=false
           android.overrideVersionCheck=true
+          org.gradle.jvmargs=-Xmx4096m -XX:+UseG1GC
           EOF
 
-          # 2. Флаги микроархитектуры ARMv9.2-A (ядра Cortex-A725/A720, dotprod, i8mm, sve2)
-          OPT_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -DGGML_OPENCL=ON -DGGML_VULKAN=ON -DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"
+          chmod +x ./gradlew
 
-          # Пробрасываем флаги во все нативные CMake-конфигурации проекта
-          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $OPT_FLAGS\")\nset(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $OPT_FLAGS\")" {} + || true
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-
-      - name: Build Optimized APK
+      - name: Compile Target APK
         run: |
-          cd "$PROJECT_DIR"
+          cd Android/src
           ./gradlew assembleDebug \
             --no-daemon \
-            -Dkotlin.suppress.gradle.plugin.binding.errors=true \
-            -Dkotlin.experimental.diagnostics.enable=false \
             -Pandroid.injected.build.abi=arm64-v8a \
-            -Pandroid.injected.build.cmake.cflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
-            -Pandroid.injected.build.cmake.cxxflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
             --stacktrace
 
-      - name: Upload Artifact
+      - name: Upload Optimized APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: box-armv9-optimized
-          path: "**/build/outputs/apk/**/*.apk"
+          name: Box-Dimensity-arm64-optimized
+          path: Android/src/app/build/outputs/apk/**/*.apk
