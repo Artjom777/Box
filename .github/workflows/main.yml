@@ -23,27 +23,27 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
-      - name: Locate project and prepare Gradle
-        run: |
-          # Ищем, где лежит корневой build.gradle / build.gradle.kts
-          GRADLE_DIR=$(dirname $(find . -maxdepth 3 -name "settings.gradle*" | head -n 1))
-          echo "Found project directory: $GRADLE_DIR"
-          cd "$GRADLE_DIR"
+      - name: Setup Compatible Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
 
-          # Если gradlew нет, генерируем его через системный gradle runner
-          if [ ! -f "./gradlew" ]; then
-            gradle wrapper
-          fi
+      - name: Locate project and generate wrapper
+        run: |
+          PROJECT_DIR=$(dirname $(find . -maxdepth 3 -name "settings.gradle*" | head -n 1))
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          cd "$PROJECT_DIR"
+          gradle wrapper --gradle-version 8.7
           chmod +x ./gradlew
-          echo "GRADLE_DIR=$GRADLE_DIR" >> $GITHUB_ENV
 
       - name: Build Optimized APK
         run: |
-          cd "$GRADLE_DIR"
+          cd "$PROJECT_DIR"
+          OPT="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto"
           ./gradlew assembleDebug \
             -Pandroid.injected.build.abi=arm64-v8a \
-            -Dorg.gradle.cflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
-            -Dorg.gradle.cxxflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
+            -Pandroid.injected.build.cmake.cflags="$OPT" \
+            -Pandroid.injected.build.cmake.cxxflags="$OPT" \
             --stacktrace
 
       - name: Upload Artifact
@@ -51,5 +51,5 @@ jobs:
         if: success()
         with:
           name: box-optimized-armv9
-          path: "**/*.apk"
+          path: "**/build/outputs/apk/**/*.apk"
           
