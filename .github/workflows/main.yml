@@ -23,11 +23,23 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
-      - name: Fix gradlew permissions
-        run: chmod +x ./gradlew
+      - name: Locate project and prepare Gradle
+        run: |
+          # Ищем, где лежит корневой build.gradle / build.gradle.kts
+          GRADLE_DIR=$(dirname $(find . -maxdepth 3 -name "settings.gradle*" | head -n 1))
+          echo "Found project directory: $GRADLE_DIR"
+          cd "$GRADLE_DIR"
+
+          # Если gradlew нет, генерируем его через системный gradle runner
+          if [ ! -f "./gradlew" ]; then
+            gradle wrapper
+          fi
+          chmod +x ./gradlew
+          echo "GRADLE_DIR=$GRADLE_DIR" >> $GITHUB_ENV
 
       - name: Build Optimized APK
         run: |
+          cd "$GRADLE_DIR"
           ./gradlew assembleDebug \
             -Pandroid.injected.build.abi=arm64-v8a \
             -Dorg.gradle.cflags="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto" \
@@ -39,4 +51,5 @@ jobs:
         if: success()
         with:
           name: box-optimized-armv9
-          path: app/build/outputs/apk/**/*.apk
+          path: "**/*.apk"
+          
