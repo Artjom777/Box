@@ -17,24 +17,26 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Gradle 9.8.2
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '9.8.2'
-
-      - name: Filter ARM64-v8a Architecture
+      - name: Build Debug APK with Native Wrapper
         run: |
-          # Ограничиваем сборку только архитектурой arm64-v8a (убирает лишние x86/armeabi бинарники)
-          find . -name "build.gradle.kts" -exec sed -i 's/ndk {/ndk { abiFilters += listOf("arm64-v8a")/g' {} + || true
+          # Находим директорию с основным gradlew
+          WRAPPER_PATH=$(find . -name "gradlew" | head -n 1)
+          if [ -z "$WRAPPER_PATH" ]; then
+            echo "gradlew не найден!"
+            exit 1
+          fi
 
-      - name: Build Debug APK
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace
+          PROJECT_DIR=$(dirname "$WRAPPER_PATH")
+          cd "$PROJECT_DIR"
+          chmod +x ./gradlew
+
+          echo "Запуск из каталога: $PROJECT_DIR"
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: box-arm64-v8a
+          name: box-debug-apk
           path: "**/build/outputs/apk/**/*.apk"
           
