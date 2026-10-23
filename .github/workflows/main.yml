@@ -1,4 +1,4 @@
-name: Build Optimized Box for Dimensity 8400
+name: Build Optimized Box APK
 on:
   workflow_dispatch:
 
@@ -24,26 +24,28 @@ jobs:
           ndk-version: r27c
           link-to-sdk: true
 
-      - name: Inject ARMv9.2-A & Mali-G720 Hardware Optimizations
+      - name: Fix Plugins and Inject Hardware Optimizations
         run: |
           cd Android/src
 
-          # 1. Задаем агрессивные аппаратные флаги под архитектуру Dimensity 8400
+          # 1. Убираем конфликтующий kapt, вызывающий ClassCastException в Gradle 9
+          sed -i '/kotlin("kapt")/d' app/build.gradle.kts
+          sed -i '/kapt(/d' app/build.gradle.kts
+
+          # 2. Флаги микроархитектуры ARMv9.2-A под ядра Cortex-A725/A720 и чип Dimensity 8400
           TARGET_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -mcpu=cortex-a725"
-          
-          # Пробрасываем флаги архитектуры напрямую во все CMakeLists модулей (smollm, whisper, sd)
           find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $TARGET_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $TARGET_FLAGS\")" {} +
 
-          # 2. Включаем ускорение Vulkan и OpenCL для Mali-G720 в llama.cpp и smollm
+          # 3. Включаем Vulkan и OpenCL для Mali-G720 в модуле smollm (llama.cpp)
           sed -i 's/"-DGGML_LLAMAFILE=OFF"/"-DGGML_LLAMAFILE=OFF", "-DGGML_VULKAN=ON", "-DGGML_OPENCL=ON", "-DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"/g' smollm/build.gradle.kts || true
 
-          # 3. Убираем лишние NPU-библиотеки чужих чипов (Qualcomm/Tensor), оставляем только MediaTek
+          # 4. Удаляем библиотеки сторонних чипсетов (Qualcomm/Tensor), оставляем только MediaTek NeuroPilot
           JNI_DIR="app/src/main/jniLibs/arm64-v8a"
           if [ -d "$JNI_DIR" ]; then
             rm -f "$JNI_DIR"/*Qualcomm* "$JNI_DIR"/*Qnn* "$JNI_DIR"/*GoogleTensor*
           fi
 
-          # 4. Обходим сбойную проверку Kotlin/AGP
+          # 5. Свойства сборки под arm64
           cat << 'EOF' >> gradle.properties
           android.injected.build.abi=arm64-v8a
           kotlin.experimental.diagnostics.enable=false
@@ -54,19 +56,17 @@ jobs:
 
           chmod +x ./gradlew
 
-      - name: Compile Native Binaries and APK
+      - name: Build Target APK
         run: |
           cd Android/src
           ./gradlew assembleDebug \
             --no-daemon \
-            -Dkotlin.suppress.gradle.plugin.binding.errors=true \
-            -Dkotlin.experimental.diagnostics.enable=false \
             -Pandroid.injected.build.abi=arm64-v8a \
             --stacktrace
 
-      - name: Upload Chipset-Optimized APK
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: Box-Dimensity-8400-Optimized
+          name: Box-Dimensity-8400-arm64
           path: Android/src/app/build/outputs/apk/**/*.apk
