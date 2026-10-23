@@ -23,36 +23,34 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
-      - name: Detect project wrapper and run build
+      - name: Setup Specific Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Patch project and build
         run: |
-          # Находим корень проекта
           SETTINGS_FILE=$(find . -maxdepth 3 -name "settings.gradle*" | head -n 1)
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           cd "$PROJECT_DIR"
 
-          echo "Working directory: $PWD"
+          # Принудительно отключаем диагностические проверки Kotlin
+          echo "kotlin.experimental.diagnostics.enable=false" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
 
-          # Проверяем gradle-wrapper.properties
-          WRAPPER_PROP=$(find . -name "gradle-wrapper.properties" | head -n 1)
-          if [ -n "$WRAPPER_PROP" ]; then
-            echo "Found wrapper properties: $WRAPPER_PROP"
-            cat "$WRAPPER_PROP"
-            # Извлекаем версию Gradle из URL
-            DIST_URL=$(grep "distributionUrl" "$WRAPPER_PROP" | cut -d'=' -f2 | tr -d '\r')
-            echo "Target Gradle distribution: $DIST_URL"
-          fi
+          # Находим все файлы CMakeLists.txt и инжектируем флаги под ARMv9.2-A напрямую в CMAKE_CXX_FLAGS
+          find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto")\nset(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto")' {} +
 
-          # Устанавливаем официальный gradle wrapper правильной версии (8.6 — стабильная для большинства AGP 8.3-8.6)
-          gradle wrapper --gradle-version 8.6 --distribution-type bin || true
-          chmod +x ./gradlew
-
-          OPT="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto"
-
-          # Запуск сборки
-          ./gradlew assembleDebug \
+          # Запуск сборки через Gradle 8.7
+          gradle assembleDebug \
             --no-daemon \
             -Dkotlin.experimental.diagnostics.enable=false \
             -Pandroid.injected.build.abi=arm64-v8a \
-            -Pandroid.injected.build.cmake.cflags="$OPT" \
-            -Pandroid.injected.build.cmake.cxxflags="$OPT" \
-            --info
+            --stacktrace
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: box-optimized-armv9
+          path: "**/build/outputs/apk/**/*.apk"
