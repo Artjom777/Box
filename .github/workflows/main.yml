@@ -1,9 +1,9 @@
-name: Inspect Project
+name: Build Box APK
 on:
   workflow_dispatch:
 
 jobs:
-  inspect:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -11,16 +11,30 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Show Project Structure and Build Files
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle 9.8.2
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '9.8.2'
+
+      - name: Filter ARM64-v8a Architecture
         run: |
-          echo "=== 1. Поиск gradle файлов ==="
-          find . -name "build.gradle*" -o -name "settings.gradle*" -o -name "gradle-wrapper.properties" -o -name "libs.versions.toml"
-          
-          echo "=== 2. Содержимое gradle-wrapper.properties (если есть) ==="
-          cat $(find . -name "gradle-wrapper.properties") 2>/dev/null || echo "gradle-wrapper.properties отсутствует"
+          # Ограничиваем сборку только архитектурой arm64-v8a (убирает лишние x86/armeabi бинарники)
+          find . -name "build.gradle.kts" -exec sed -i 's/ndk {/ndk { abiFilters += listOf("arm64-v8a")/g' {} + || true
 
-          echo "=== 3. Версии плагинов (из libs.versions.toml или корневого build.gradle) ==="
-          cat $(find . -name "libs.versions.toml") 2>/dev/null || head -n 30 $(find . -name "build.gradle*" | head -n 1) 2>/dev/null || true
+      - name: Build Debug APK
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
 
-          echo "=== 4. Наличие нативного кода / CMake ==="
-          find . -name "CMakeLists.txt" -o -name "Android.mk"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: box-arm64-v8a
+          path: "**/build/outputs/apk/**/*.apk"
+          2
