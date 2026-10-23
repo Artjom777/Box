@@ -28,19 +28,36 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Locate project and generate wrapper
+      - name: Inspect and Prepare Build Directory
         run: |
-          PROJECT_DIR=$(dirname $(find . -maxdepth 3 -name "settings.gradle*" | head -n 1))
+          SETTINGS_FILE=$(find . -maxdepth 3 -name "settings.gradle*" | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "settings.gradle not found, listing root files:"
+            ls -la
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
           cd "$PROJECT_DIR"
-          gradle wrapper --gradle-version 8.7
-          chmod +x ./gradlew
+          
+          # Если gradlew уже есть где-то рядом
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          fi
 
       - name: Build Optimized APK
         run: |
           cd "$PROJECT_DIR"
           OPT="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto"
-          ./gradlew assembleDebug \
+          
+          # Если есть gradlew — используем его, иначе вызываем системный gradle напрямую
+          BUILD_CMD="./gradlew"
+          if [ ! -f "./gradlew" ]; then
+            BUILD_CMD="gradle"
+          fi
+
+          $BUILD_CMD assembleDebug \
+            --no-daemon \
             -Pandroid.injected.build.abi=arm64-v8a \
             -Pandroid.injected.build.cmake.cflags="$OPT" \
             -Pandroid.injected.build.cmake.cxxflags="$OPT" \
