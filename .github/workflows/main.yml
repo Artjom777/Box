@@ -24,54 +24,50 @@ jobs:
           ndk-version: r27c
           link-to-sdk: true
 
-      - name: Patch KAPT Bug and Optimize ALL Engines
+      - name: Fix AGP 9 Kotlin Conflict and Apply Hardware Optimizations
         run: |
           cd Android/src
 
-          # 1. Ликвидируем ClassCastException (убираем kapt, переводим hilt на ksp)
+          # 1. Ликвидация AgpWithBuiltInKotlinAppliedCheck:
+          # В AGP 9 встроен нативный Kotlin. Удаляем избыточный плагин kotlin.android, вызывающий падение
+          sed -i '/alias(libs.plugins.kotlin.android)/d' app/build.gradle.kts
+          sed -i '/id("org.jetbrains.kotlin.android")/d' smollm/build.gradle.kts stablediffusion/build.gradle.kts whisper/build.gradle.kts || true
           sed -i '/kotlin("kapt")/d' app/build.gradle.kts
           sed -i 's/kapt(libs.hilt.android.compiler)/ksp(libs.hilt.android.compiler)/g' app/build.gradle.kts
           sed -i '/kapt/d' app/build.gradle.kts
 
-          # 2. Флаги микроархитектуры Dimensity 8400 под ядра Cortex-A725 / A720
-          # Включаем i8mm (аппаратный тензорный расчет INT8/INT4), sve2 и dotprod
+          # 2. Аппаратные инструкции Cortex-A725 / A720 под чип Dimensity 8400 (ARMv9.2-A)
+          # Активируем i8mm (аппаратный тензорный расчет INT8/INT4), sve2 и dotprod
           TARGET_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -mcpu=cortex-a725 -flto -fvectorize"
           find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $TARGET_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $TARGET_FLAGS\")" {} +
 
-          # 3. Ускорение движка llama.cpp (smollm): GPU оффлоад Vulkan + OpenCL под Mali-G720
+          # 3. Активация GPU Mali-G720 (Vulkan / OpenCL) для всех C++ движков
           sed -i 's/"-DGGML_LLAMAFILE=OFF"/"-DGGML_LLAMAFILE=OFF", "-DGGML_VULKAN=ON", "-DGGML_OPENCL=ON", "-DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"/g' smollm/build.gradle.kts || true
-
-          # 4. Ускорение движка whisper.cpp: включение Vulkan и OpenCL
           sed -i 's/"-DGGML_VULKAN=OFF"/"-DGGML_VULKAN=ON"/g' whisper/build.gradle.kts || true
           sed -i 's/"-DGGML_OPENCL=OFF"/"-DGGML_OPENCL=ON"/g' whisper/build.gradle.kts || true
-
-          # 5. Ускорение движка stable-diffusion.cpp: включение Vulkan для Mali-G720
           sed -i 's/"-DSD_VULKAN=OFF"/"-DSD_VULKAN=ON"/g' stablediffusion/build.gradle.kts || true
 
-          # 6. Очистка несовместимых драйверов Qualcomm QNN и Tensor TPU (оставляем стек MediaTek NPU)
+          # 4. Удаление драйверов сторонних NPU (Qualcomm QNN / Google Tensor)
           JNI_DIR="app/src/main/jniLibs/arm64-v8a"
           if [ -d "$JNI_DIR" ]; then
             rm -f "$JNI_DIR"/*Qualcomm* "$JNI_DIR"/*Qnn* "$JNI_DIR"/*GoogleTensor*
           fi
 
-          # 7. Параметры Gradle под целевую сборку
+          # 5. Свойства сборщика под целевую платформу
           cat << 'EOF' >> gradle.properties
           android.useAndroidX=true
           android.injected.build.abi=arm64-v8a
-          kotlin.experimental.diagnostics.enable=false
-          kotlin.suppress.gradle.plugin.binding.errors=true
           android.overrideVersionCheck=true
           org.gradle.jvmargs=-Xmx6144m
           EOF
 
           chmod +x ./gradlew
 
-      - name: Build Optimized APK
+      - name: Build Target APK
         run: |
           cd Android/src
           ./gradlew assembleDebug \
             --no-daemon \
-            -Dkotlin.suppress.gradle.plugin.binding.errors=true \
             -Pandroid.injected.build.abi=arm64-v8a \
             --stacktrace
 
