@@ -1,4 +1,4 @@
-name: Build Optimized Box APK
+name: Build Optimized Box for Dimensity 8400
 on:
   workflow_dispatch:
 
@@ -24,32 +24,39 @@ jobs:
           ndk-version: r27c
           link-to-sdk: true
 
-      - name: Patch KAPT and Inject Dimensity 8400 Hardware Flags
+      - name: Patch KAPT Bug and Optimize ALL Engines
         run: |
           cd Android/src
 
-          # 1. Устраняем ClassCastException: удаляем устаревший kapt и переводим hilt на ksp
+          # 1. Ликвидируем ClassCastException (убираем kapt, переводим hilt на ksp)
           sed -i '/kotlin("kapt")/d' app/build.gradle.kts
           sed -i 's/kapt(libs.hilt.android.compiler)/ksp(libs.hilt.android.compiler)/g' app/build.gradle.kts
           sed -i '/kapt/d' app/build.gradle.kts
 
-          # 2. Аппаратные инструкции Cortex-A725 / ARMv9.2-A (i8mm, dotprod, fp16, sve2)
-          CHIP_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -mcpu=cortex-a725"
-          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $CHIP_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $CHIP_FLAGS\")" {} +
+          # 2. Флаги микроархитектуры Dimensity 8400 под ядра Cortex-A725 / A720
+          # Включаем i8mm (аппаратный тензорный расчет INT8/INT4), sve2 и dotprod
+          TARGET_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -mcpu=cortex-a725 -flto -fvectorize"
+          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $TARGET_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $TARGET_FLAGS\")" {} +
 
-          # 3. Активируем аппаратный Vulkan/OpenCL для GPU Mali-G720 в llama.cpp (smollm) и whisper
+          # 3. Ускорение движка llama.cpp (smollm): GPU оффлоад Vulkan + OpenCL под Mali-G720
           sed -i 's/"-DGGML_LLAMAFILE=OFF"/"-DGGML_LLAMAFILE=OFF", "-DGGML_VULKAN=ON", "-DGGML_OPENCL=ON", "-DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"/g' smollm/build.gradle.kts || true
+
+          # 4. Ускорение движка whisper.cpp: включение Vulkan и OpenCL
           sed -i 's/"-DGGML_VULKAN=OFF"/"-DGGML_VULKAN=ON"/g' whisper/build.gradle.kts || true
           sed -i 's/"-DGGML_OPENCL=OFF"/"-DGGML_OPENCL=ON"/g' whisper/build.gradle.kts || true
 
-          # 4. Удаляем неподдерживаемые драйверы Qualcomm QNN и Tensor TPU, оставляем NPU MediaTek
+          # 5. Ускорение движка stable-diffusion.cpp: включение Vulkan для Mali-G720
+          sed -i 's/"-DSD_VULKAN=OFF"/"-DSD_VULKAN=ON"/g' stablediffusion/build.gradle.kts || true
+
+          # 6. Очистка несовместимых драйверов Qualcomm QNN и Tensor TPU (оставляем стек MediaTek NPU)
           JNI_DIR="app/src/main/jniLibs/arm64-v8a"
           if [ -d "$JNI_DIR" ]; then
             rm -f "$JNI_DIR"/*Qualcomm* "$JNI_DIR"/*Qnn* "$JNI_DIR"/*GoogleTensor*
           fi
 
-          # 5. Глушим лишние проверки Gradle
+          # 7. Параметры Gradle под целевую сборку
           cat << 'EOF' >> gradle.properties
+          android.useAndroidX=true
           android.injected.build.abi=arm64-v8a
           kotlin.experimental.diagnostics.enable=false
           kotlin.suppress.gradle.plugin.binding.errors=true
@@ -68,10 +75,9 @@ jobs:
             -Pandroid.injected.build.abi=arm64-v8a \
             --stacktrace
 
-      - name: Upload Artifact
+      - name: Upload Chipset-Optimized APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: Box-Dimensity-8400-arm64
+          name: Box-Dimensity8400-Optimized-AllEngines
           path: Android/src/app/build/outputs/apk/**/*.apk
-          
