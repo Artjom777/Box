@@ -24,28 +24,31 @@ jobs:
           ndk-version: r27c
           link-to-sdk: true
 
-      - name: Fix Plugins and Inject Hardware Optimizations
+      - name: Patch KAPT and Inject Dimensity 8400 Hardware Flags
         run: |
           cd Android/src
 
-          # 1. Убираем конфликтующий kapt, вызывающий ClassCastException в Gradle 9
+          # 1. Устраняем ClassCastException: удаляем устаревший kapt и переводим hilt на ksp
           sed -i '/kotlin("kapt")/d' app/build.gradle.kts
-          sed -i '/kapt(/d' app/build.gradle.kts
+          sed -i 's/kapt(libs.hilt.android.compiler)/ksp(libs.hilt.android.compiler)/g' app/build.gradle.kts
+          sed -i '/kapt/d' app/build.gradle.kts
 
-          # 2. Флаги микроархитектуры ARMv9.2-A под ядра Cortex-A725/A720 и чип Dimensity 8400
-          TARGET_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -mcpu=cortex-a725"
-          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $TARGET_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $TARGET_FLAGS\")" {} +
+          # 2. Аппаратные инструкции Cortex-A725 / ARMv9.2-A (i8mm, dotprod, fp16, sve2)
+          CHIP_FLAGS="-O3 -march=armv9.2-a+dotprod+fp16+i8mm+sve+sve2 -flto -mcpu=cortex-a725"
+          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} $CHIP_FLAGS\")\nset(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} $CHIP_FLAGS\")" {} +
 
-          # 3. Включаем Vulkan и OpenCL для Mali-G720 в модуле smollm (llama.cpp)
+          # 3. Активируем аппаратный Vulkan/OpenCL для GPU Mali-G720 в llama.cpp (smollm) и whisper
           sed -i 's/"-DGGML_LLAMAFILE=OFF"/"-DGGML_LLAMAFILE=OFF", "-DGGML_VULKAN=ON", "-DGGML_OPENCL=ON", "-DGGML_VK_FORCE_MAX_SUBGROUP_SIZE=64"/g' smollm/build.gradle.kts || true
+          sed -i 's/"-DGGML_VULKAN=OFF"/"-DGGML_VULKAN=ON"/g' whisper/build.gradle.kts || true
+          sed -i 's/"-DGGML_OPENCL=OFF"/"-DGGML_OPENCL=ON"/g' whisper/build.gradle.kts || true
 
-          # 4. Удаляем библиотеки сторонних чипсетов (Qualcomm/Tensor), оставляем только MediaTek NeuroPilot
+          # 4. Удаляем неподдерживаемые драйверы Qualcomm QNN и Tensor TPU, оставляем NPU MediaTek
           JNI_DIR="app/src/main/jniLibs/arm64-v8a"
           if [ -d "$JNI_DIR" ]; then
             rm -f "$JNI_DIR"/*Qualcomm* "$JNI_DIR"/*Qnn* "$JNI_DIR"/*GoogleTensor*
           fi
 
-          # 5. Свойства сборки под arm64
+          # 5. Глушим лишние проверки Gradle
           cat << 'EOF' >> gradle.properties
           android.injected.build.abi=arm64-v8a
           kotlin.experimental.diagnostics.enable=false
@@ -56,11 +59,12 @@ jobs:
 
           chmod +x ./gradlew
 
-      - name: Build Target APK
+      - name: Build Optimized APK
         run: |
           cd Android/src
           ./gradlew assembleDebug \
             --no-daemon \
+            -Dkotlin.suppress.gradle.plugin.binding.errors=true \
             -Pandroid.injected.build.abi=arm64-v8a \
             --stacktrace
 
@@ -70,3 +74,4 @@ jobs:
         with:
           name: Box-Dimensity-8400-arm64
           path: Android/src/app/build/outputs/apk/**/*.apk
+          
