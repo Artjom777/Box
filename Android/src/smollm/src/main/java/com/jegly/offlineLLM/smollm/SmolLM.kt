@@ -30,7 +30,9 @@ class SmolLM {
 
             if (!isEmulated) {
                 if (supportsArm64V8a()) {
-                    if (isAtLeastArmV84 && hasSve && hasI8mm && hasFp16 && hasDotProd) {
+                    if (isAtLeastArmV84 && hasI8mm && hasFp16 && hasDotProd) {
+                        System.loadLibrary("smollm_v9_2_fp16_dotprod_i8mm")
+                    } else if (isAtLeastArmV84 && hasSve && hasI8mm && hasFp16 && hasDotProd) {
                         System.loadLibrary("smollm_v8_4_fp16_dotprod_i8mm_sve")
                     } else if (isAtLeastArmV84 && hasSve && hasFp16 && hasDotProd) {
                         System.loadLibrary("smollm_v8_4_fp16_dotprod_sve")

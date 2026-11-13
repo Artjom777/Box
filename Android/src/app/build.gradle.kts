@@ -33,6 +33,7 @@ android {
   compileSdk = 36
 
   defaultConfig {
+    ndk { abiFilters += "arm64-v8a" }
     applicationId = "com.box.gallery"
     minSdk = 35
     targetSdk = 37

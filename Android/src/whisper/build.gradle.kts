@@ -6,9 +6,10 @@ plugins {
 android {
     namespace = "com.google.ai.edge.gallery.whisper"
     compileSdk = 36
-    ndkVersion = "27.2.12479018"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
+        ndk { abiFilters += "arm64-v8a" }
         minSdk = 30
         externalNativeBuild {
             cmake {
@@ -16,6 +17,8 @@ android {
                 arguments += listOf(
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCMAKE_C_FLAGS=-O3 -mcpu=cortex-a725",
+                    "-DCMAKE_CXX_FLAGS=-O3 -mcpu=cortex-a725",
                     "-DWHISPER_BUILD_TESTS=OFF",
                     "-DWHISPER_BUILD_EXAMPLES=OFF",
                     "-DWHISPER_BUILD_SERVER=OFF",
@@ -27,7 +30,7 @@ android {
                     "-DGGML_BUILD_EXAMPLES=OFF",
                     "-DGGML_METAL=OFF",
                     "-DGGML_CUDA=OFF",
-                    "-DGGML_VULKAN=OFF",
+                    "-DGGML_VULKAN=ON",
                     "-DGGML_OPENCL=OFF",
                     "-DGGML_LLAMAFILE=OFF",
                     "-DBUILD_SHARED_LIBS=OFF",

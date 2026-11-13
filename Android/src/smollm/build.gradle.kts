@@ -6,21 +6,27 @@ plugins {
 android {
     namespace = "com.google.ai.edge.gallery.smollm"
     compileSdk = 36
-    ndkVersion = "27.2.12479018"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
+        ndk { abiFilters += "arm64-v8a" }
         minSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
         externalNativeBuild {
             cmake {
                 cppFlags += listOf()
-                arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
-                arguments += "-DCMAKE_BUILD_TYPE=Release"
+                arguments += listOf(
+                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCMAKE_C_FLAGS=-O3 -mcpu=cortex-a725",
+                    "-DCMAKE_CXX_FLAGS=-O3 -mcpu=cortex-a725",
+                )
                 arguments += "-DBUILD_SHARED_LIBS=ON"
                 arguments += "-DLLAMA_BUILD_COMMON=ON"
                 arguments += "-DLLAMA_CURL=OFF"
                 arguments += "-DGGML_LLAMAFILE=OFF"
+                arguments += "-DGGML_VULKAN=ON"
             }
         }
     }
