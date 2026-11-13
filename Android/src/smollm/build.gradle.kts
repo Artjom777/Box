@@ -27,6 +27,7 @@ android {
                 arguments += "-DLLAMA_CURL=OFF"
                 arguments += "-DGGML_LLAMAFILE=OFF"
                 arguments += "-DGGML_VULKAN=ON"
+                System.getenv("VULKAN_HEADERS_DIR")?.let { arguments += "-DVulkan_INCLUDE_DIR=$it" }
             }
         }
     }

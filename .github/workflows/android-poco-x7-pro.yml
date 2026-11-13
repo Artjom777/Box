@@ -19,6 +19,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Checkout Vulkan headers
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          path: Vulkan-Headers
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -35,6 +41,8 @@ jobs:
 
       - name: Build release APK
         working-directory: Android/src
+        env:
+          VULKAN_HEADERS_DIR: ${{ github.workspace }}/Vulkan-Headers/include
         run: ./gradlew --no-daemon --stacktrace assembleRelease
 
       - name: Upload APK

@@ -35,6 +35,7 @@ android {
                     "-DGGML_LLAMAFILE=OFF",
                     "-DBUILD_SHARED_LIBS=OFF",
                 )
+                System.getenv("VULKAN_HEADERS_DIR")?.let { arguments += "-DVulkan_INCLUDE_DIR=$it" }
             }
         }
     }
