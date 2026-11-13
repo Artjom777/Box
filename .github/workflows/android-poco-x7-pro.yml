@@ -25,6 +25,12 @@ jobs:
           repository: KhronosGroup/Vulkan-Headers
           path: Vulkan-Headers
 
+      - name: Checkout SPIR-V headers
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/SPIRV-Headers
+          path: SPIRV-Headers
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -43,6 +49,7 @@ jobs:
         working-directory: Android/src
         env:
           VULKAN_HEADERS_DIR: ${{ github.workspace }}/Vulkan-Headers/include
+          SPIRV_HEADERS_DIR: ${{ github.workspace }}/SPIRV-Headers/include
         run: ./gradlew --no-daemon --stacktrace assembleRelease
 
       - name: Upload APK

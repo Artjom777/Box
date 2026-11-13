@@ -35,6 +35,7 @@ android {
                     "-DBUILD_SHARED_LIBS=OFF",
                 )
                 System.getenv("VULKAN_HEADERS_DIR")?.let { arguments += "-DVulkan_INCLUDE_DIR=$it" }
+                System.getenv("SPIRV_HEADERS_DIR")?.let { arguments += "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm -I$it" }
             }
         }
     }
