@@ -17,8 +17,8 @@ android {
                 arguments += listOf(
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DCMAKE_BUILD_TYPE=Release",
-                    "-DCMAKE_C_FLAGS=-O3 -mcpu=cortex-a725",
-                    "-DCMAKE_CXX_FLAGS=-O3 -mcpu=cortex-a725",
+                    "-DCMAKE_C_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm",
+                    "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm",
                     "-DWHISPER_BUILD_TESTS=OFF",
                     "-DWHISPER_BUILD_EXAMPLES=OFF",
                     "-DWHISPER_BUILD_SERVER=OFF",
