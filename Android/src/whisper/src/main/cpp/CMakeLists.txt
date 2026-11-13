@@ -15,7 +15,7 @@ set(GGML_BUILD_TESTS           OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES        OFF CACHE BOOL "" FORCE)
 set(GGML_METAL                 OFF CACHE BOOL "" FORCE)
 set(GGML_CUDA                  OFF CACHE BOOL "" FORCE)
-set(GGML_VULKAN                ON CACHE BOOL "" FORCE)
+set(GGML_VULKAN                OFF CACHE BOOL "" FORCE)
 set(GGML_OPENCL                OFF CACHE BOOL "" FORCE)
 set(GGML_LLAMAFILE             OFF CACHE BOOL "" FORCE)
 

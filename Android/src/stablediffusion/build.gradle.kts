@@ -28,14 +28,11 @@ android {
                     "-DSD_WEBM=OFF",
                     "-DSD_CUDA=OFF",
                     "-DSD_METAL=OFF",
-                    "-DSD_VULKAN=ON",
-                    "-DGGML_VULKAN=ON",
+                    "-DSD_VULKAN=OFF",
                     "-DGGML_BUILD_TESTS=OFF",
                     "-DGGML_BUILD_EXAMPLES=OFF",
                     "-DBUILD_SHARED_LIBS=OFF",
                 )
-                System.getenv("VULKAN_HEADERS_DIR")?.let { arguments += "-DVulkan_INCLUDE_DIR=$it" }
-                System.getenv("SPIRV_HEADERS_DIR")?.let { arguments += "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm -I$it" }
             }
         }
     }
