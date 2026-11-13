@@ -43,7 +43,7 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: Install Android NDK
-        run: sdkmanager "ndk;28.2.13676358" "cmake;3.22.1"
+        run: sdkmanager "ndk;28.2.13676358" "cmake;3.22.1" "platforms;android-37"
 
       - name: Install Vulkan shader compiler
         run: |
