@@ -28,9 +28,11 @@ Java_com_google_ai_edge_gallery_stablediffusion_StableDiffusion_loadModelNative(
     sd_ctx_params_t params;
     sd_ctx_params_init(&params);
     params.model_path = path;
-    params.n_threads = (int)nThreads;
+    params.n_threads = (nThreads > 0) ? (int)nThreads : 4;
     params.vae_decode_only = true;
     params.enable_mmap = true;
+    params.flash_attn = true;
+    params.diffusion_flash_attn = true;
 
     sd_set_log_callback([](sd_log_level_t level, const char* text, void*) {
         if (level == SD_LOG_ERROR) {

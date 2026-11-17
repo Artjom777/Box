@@ -18,6 +18,7 @@ class SmolLM {
             val hasFp16 = cpuFeatures.contains("fp16") || cpuFeatures.contains("fphp")
             val hasDotProd = cpuFeatures.contains("dotprod") || cpuFeatures.contains("asimddp")
             val hasSve = cpuFeatures.contains("sve")
+            val hasSve2 = cpuFeatures.contains("sve2")
             val hasI8mm = cpuFeatures.contains("i8mm")
             val isAtLeastArmV82 =
                 cpuFeatures.contains("asimd") &&
@@ -30,8 +31,14 @@ class SmolLM {
 
             if (!isEmulated) {
                 if (supportsArm64V8a()) {
-                    if (isAtLeastArmV84 && hasI8mm && hasFp16 && hasDotProd) {
-                        System.loadLibrary("smollm_v9_2_fp16_dotprod_i8mm")
+                    try {
+                        System.loadLibrary("ggml-vulkan")
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "Vulkan backend not loaded: ${e.message}")
+                    }
+
+                    if (isAtLeastArmV84 && hasSve2 && hasI8mm && hasFp16 && hasDotProd) {
+                        System.loadLibrary("smollm_v9_2_fp16_dotprod_i8mm_sve2")
                     } else if (isAtLeastArmV84 && hasSve && hasI8mm && hasFp16 && hasDotProd) {
                         System.loadLibrary("smollm_v8_4_fp16_dotprod_i8mm_sve")
                     } else if (isAtLeastArmV84 && hasSve && hasFp16 && hasDotProd) {

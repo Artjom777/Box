@@ -31,10 +31,12 @@ LLMInference::loadModel(const char *model_path, float minP, float temperature, f
          nThreads, useMmap, useMlock);
 
     ggml_backend_load_all();
+    ggml_backend_load("libggml-vulkan.so");
 
     llama_model_params model_params = llama_model_default_params();
     model_params.use_mmap = useMmap;
     model_params.use_mlock = useMlock;
+    model_params.n_gpu_layers = 99;
     _model = llama_model_load_from_file(model_path, model_params);
     if (!_model) {
         LOGe("failed to load model from %s", model_path);
@@ -45,6 +47,7 @@ LLMInference::loadModel(const char *model_path, float minP, float temperature, f
     ctx_params.n_ctx = contextSize;
     ctx_params.n_batch = contextSize;
     ctx_params.n_threads = nThreads;
+    ctx_params.n_threads_batch = nThreads;
     ctx_params.no_perf = true;
     _ctx = llama_init_from_model(_model, ctx_params);
     if (!_ctx) {

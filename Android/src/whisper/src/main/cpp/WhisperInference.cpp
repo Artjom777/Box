@@ -17,7 +17,7 @@ Java_com_google_ai_edge_gallery_whisper_WhisperEngine_loadModelNative(
     LOGI("Loading whisper model: %s", path);
 
     whisper_context_params cparams = whisper_context_default_params();
-    cparams.use_gpu = false;
+    cparams.use_gpu = true;
 
     whisper_context* ctx = whisper_init_from_file_with_params(path, cparams);
     env->ReleaseStringUTFChars(modelPath, path);

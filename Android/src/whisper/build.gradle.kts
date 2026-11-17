@@ -17,8 +17,8 @@ android {
                 arguments += listOf(
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DCMAKE_BUILD_TYPE=Release",
-                    "-DCMAKE_C_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm",
-                    "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm",
+                    "-DCMAKE_C_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm+sve+sve2",
+                    "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm+sve+sve2",
                     "-DWHISPER_BUILD_TESTS=OFF",
                     "-DWHISPER_BUILD_EXAMPLES=OFF",
                     "-DWHISPER_BUILD_SERVER=OFF",
@@ -30,11 +30,13 @@ android {
                     "-DGGML_BUILD_EXAMPLES=OFF",
                     "-DGGML_METAL=OFF",
                     "-DGGML_CUDA=OFF",
-                    "-DGGML_VULKAN=OFF",
+                    "-DGGML_VULKAN=ON",
                     "-DGGML_OPENCL=OFF",
                     "-DGGML_LLAMAFILE=OFF",
                     "-DBUILD_SHARED_LIBS=OFF",
                 )
+                System.getenv("VULKAN_HEADERS_DIR")?.let { arguments += "-DVulkan_INCLUDE_DIR=$it" }
+                System.getenv("SPIRV_HEADERS_DIR")?.let { arguments += "-DCMAKE_CXX_FLAGS=-O3 -march=armv9.2-a+fp16+dotprod+i8mm+sve+sve2 -I$it" }
             }
         }
     }

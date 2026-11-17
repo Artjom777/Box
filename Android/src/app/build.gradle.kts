@@ -30,15 +30,15 @@ plugins {
 
 android {
   namespace = "com.google.ai.edge.gallery"
-  compileSdk = 37
+  compileSdk = 36
 
   defaultConfig {
     ndk { abiFilters += "arm64-v8a" }
     applicationId = "com.box.gallery"
     minSdk = 35
-    targetSdk = 37
-    versionCode = 26
-    versionName = "1.0.12"
+    targetSdk = 36
+    versionCode = 27
+    versionName = "1.0.13"
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.

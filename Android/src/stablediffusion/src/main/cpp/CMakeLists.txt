@@ -12,7 +12,8 @@ set(SD_WEBP OFF CACHE BOOL "" FORCE)
 set(SD_WEBM OFF CACHE BOOL "" FORCE)
 set(SD_CUDA OFF CACHE BOOL "" FORCE)
 set(SD_METAL OFF CACHE BOOL "" FORCE)
-set(SD_VULKAN OFF CACHE BOOL "" FORCE)
+set(SD_VULKAN ON CACHE BOOL "" FORCE)
+set(GGML_VULKAN ON CACHE BOOL "" FORCE)
 set(SD_OPENCL OFF CACHE BOOL "" FORCE)
 set(SD_SYCL OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -39,6 +40,7 @@ target_compile_options(stablediffusion PRIVATE
 target_link_libraries(stablediffusion
     android
     log
+    vulkan
     stable-diffusion
     ggml
 )

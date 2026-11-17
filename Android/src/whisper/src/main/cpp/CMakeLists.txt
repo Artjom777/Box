@@ -15,7 +15,7 @@ set(GGML_BUILD_TESTS           OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES        OFF CACHE BOOL "" FORCE)
 set(GGML_METAL                 OFF CACHE BOOL "" FORCE)
 set(GGML_CUDA                  OFF CACHE BOOL "" FORCE)
-set(GGML_VULKAN                OFF CACHE BOOL "" FORCE)
+set(GGML_VULKAN                ON CACHE BOOL "" FORCE)
 set(GGML_OPENCL                OFF CACHE BOOL "" FORCE)
 set(GGML_LLAMAFILE             OFF CACHE BOOL "" FORCE)
 
@@ -37,7 +37,7 @@ target_compile_options(whisper_jni PRIVATE
     -O3
 )
 
-target_link_libraries(whisper_jni android log whisper ggml)
+target_link_libraries(whisper_jni android log vulkan whisper ggml)
 
 target_link_options(whisper_jni PRIVATE
     -Wl,--gc-sections
